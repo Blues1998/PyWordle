@@ -1,12 +1,22 @@
 import tkinter as tk
 from tkinter import messagebox
+import random
+import os
 
 # =========================
 # CONFIG
 # =========================
 WORD_LENGTH = 5
 MAX_ATTEMPTS = 6
-SECRET_WORD = "CRANE"  # fixed word for now
+WORDS_FILE = "words.txt"
+
+
+def load_words(file_path):
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"{file_path} not found! Please make sure words.txt is in the same folder.")
+    with open(file_path, "r") as f:
+        words = [w.strip().upper() for w in f.readlines() if len(w.strip()) == WORD_LENGTH]
+    return words
 
 
 class WordleGame(tk.Tk):
@@ -16,6 +26,10 @@ class WordleGame(tk.Tk):
         self.title("Wordle Clone")
         self.resizable(False, False)
         self.configure(bg="#121213")
+
+        # Load words & choose secret
+        self.word_list = load_words(WORDS_FILE)
+        self.secret_word = random.choice(self.word_list)
 
         # Keep track of guesses
         self.current_row = 0
@@ -71,7 +85,7 @@ class WordleGame(tk.Tk):
             return  # incomplete word
 
         guess = guess.upper()
-        secret = SECRET_WORD
+        secret = self.secret_word
 
         # Coloring logic
         colors = ["#3a3a3c"] * WORD_LENGTH  # default gray
