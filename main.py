@@ -2,6 +2,14 @@ import tkinter as tk
 from tkinter import messagebox
 import random
 import os
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # =========================
 # CONFIG
@@ -25,7 +33,9 @@ def load_words(file_path):
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"{file_path} not found! Please make sure words.txt is in the same folder.")
     with open(file_path, "r") as f:
+        logger.debug("Loading words dictionary file")
         words = [w.strip().upper() for w in f.readlines() if len(w.strip()) == WORD_LENGTH]
+        logger.debug(f"Loaded {len(words)} words from dictionary")
     return words
 
 
@@ -69,20 +79,20 @@ class WordleGame(tk.Tk):
             self.cells.append(row)
 
         # Submit button (row after grid)
-        self.submit_btn = tk.Button(
+        self.submit_btn = tk.Label(
             self,
             text="Submit",
-            font=("Helvetica", 14, "bold"),
-            bg="#4CAF50",   # green when valid
+            font=("Helvetica", 18, "bold"),
+            bg="#555",  # grey initially
             fg="white",
-            state="disabled",
-            relief="flat",
-            padx=10,
-            pady=5,
-            command=self.submit_guess
+            padx=20,
+            pady=10,
+            relief="raised",
+            cursor="hand2"  # looks clickable
         )
-        # Place submit button centered across columns
         self.submit_btn.grid(row=MAX_ATTEMPTS, column=0, columnspan=WORD_LENGTH, pady=(10, 10))
+        self.submit_btn.bind("<Button-1>",
+                             lambda e: self.submit_guess() if self.submit_btn["bg"] == "#4CAF50" else None)
 
         # On-screen keyboard
         self.keyboard_frame = tk.Frame(self, bg=COLOR_BG)
@@ -103,7 +113,8 @@ class WordleGame(tk.Tk):
                 self.keyboard_buttons[k] = btn
 
             if r == 2:  # add Backspace last
-                back_lbl = self.make_key(row_frame, "⌫", wide=True, command=lambda: self.handle_virtual_key("BackSpace"))
+                back_lbl = self.make_key(row_frame, "⌫", wide=True,
+                                         command=lambda: self.handle_virtual_key("BackSpace"))
                 back_lbl.pack(side="left", padx=2)
 
         # Key bindings
@@ -131,6 +142,7 @@ class WordleGame(tk.Tk):
         self.handle_key(event)
 
     def handle_key(self, event):
+        logger.debug(f"Key pressed: {event.keysym}")
         if self.current_row >= MAX_ATTEMPTS:
             return  # Game over
 
@@ -210,19 +222,33 @@ class WordleGame(tk.Tk):
         animate_cell(0)
 
     def update_submit_button(self):
-        """Enable/disable and recolor the submit button based on current row content."""
-        guess = self.get_current_guess()
-        if len(guess) < WORD_LENGTH:
-            # Not enough letters
-            self.submit_btn.config(state="disabled", bg="#666666", text="Submit")
-            return
+        word = "".join(self.grid_letters[self.current_row])
+        logger.debug(f"Checking word='{word.lower()}' at row={self.current_row}")
 
-        if guess in self.word_list:
-            # Valid 5 letters
-            self.submit_btn.config(state="normal", bg="#4CAF50", text="Submit")
+        if len(word) == WORD_LENGTH:
+            logger.debug(f"Looking into {len(self.word_list)} words for {word}")
+            logger.debug(f"{self.word_list[:5]}")
+            if word in self.word_list:
+                logger.debug("Word is valid → enabling green Submit")
+                self.submit_btn.config(
+                    text="Submit",
+                    bg="#4CAF50",
+                    fg="white"
+                )
+            else:
+                logger.debug("Word not found in word_list → showing red Not a word")
+                self.submit_btn.config(
+                    text="Not a word",
+                    bg="#E53935",
+                    fg="white"
+                )
         else:
-            # 5 letters but not a word
-            self.submit_btn.config(state="disabled", bg="#E74C3C", text="Not a word")
+            logger.debug("Word incomplete → grey Submit")
+            self.submit_btn.config(
+                text="Submit",
+                bg="#555",
+                fg="#ccc"
+            )
 
     def update_keyboard(self, letter, color):
         """Update keyboard button colors with priority (green > yellow > grey)."""
