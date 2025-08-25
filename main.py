@@ -70,56 +70,44 @@ class WordleGame(tk.Tk):
 
         # On-screen keyboard
         self.keyboard_frame = tk.Frame(self, bg=COLOR_BG)
-        self.keyboard_frame.grid(row=MAX_ATTEMPTS + 1, column=0, columnspan=WORD_LENGTH)
+        self.keyboard_frame.grid(row=MAX_ATTEMPTS + 1, column=0, columnspan=WORD_LENGTH, pady=20)
 
         self.keyboard_buttons = {}
         layout = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
         for r, keys in enumerate(layout):
             row_frame = tk.Frame(self.keyboard_frame, bg=COLOR_BG)
             row_frame.pack(pady=3)
-            for k in keys:
-                btn = tk.Button(
-                    row_frame,
-                    text=k,
-                    width=4,
-                    height=2,
-                    font=("Helvetica", 12, "bold"),
-                    bg=COLOR_KEY_DEFAULT,
-                    fg=COLOR_KEY_TEXT,
-                    relief="flat",
-                    command=lambda ch=k: self.handle_virtual_key(ch)
-                )
-                btn.pack(side="left", padx=2)
-                self.keyboard_buttons[k] = btn
-            if r == 2:  # add Enter and Backspace on last row
-                enter_btn = tk.Button(
-                    row_frame,
-                    text="ENTER",
-                    width=6,
-                    height=2,
-                    font=("Helvetica", 12, "bold"),
-                    bg=COLOR_KEY_DEFAULT,
-                    fg=COLOR_KEY_TEXT,
-                    relief="flat",
-                    command=lambda: self.submit_guess()
-                )
+            if r == 2:  # add Enter first
+                enter_btn = self.make_key(row_frame, "ENTER", wide=True, command=self.submit_guess)
                 enter_btn.pack(side="left", padx=2)
 
-                back_btn = tk.Button(
-                    row_frame,
-                    text="⌫",
-                    width=4,
-                    height=2,
-                    font=("Helvetica", 12, "bold"),
-                    bg=COLOR_KEY_DEFAULT,
-                    fg=COLOR_KEY_TEXT,
-                    relief="flat",
-                    command=lambda: self.handle_virtual_key("BackSpace")
-                )
+            for k in keys:
+                btn = self.make_key(row_frame, k, wide=False, command=lambda ch=k: self.handle_virtual_key(ch))
+                btn.pack(side="left", padx=2)
+                self.keyboard_buttons[k] = btn
+
+            if r == 2:  # add Backspace last
+                back_btn = self.make_key(row_frame, "⌫", wide=True, command=lambda: self.handle_virtual_key("BackSpace"))
                 back_btn.pack(side="left", padx=2)
 
         # Key bindings
         self.bind("<Key>", self.handle_key)
+
+    # Utility for making keyboard keys
+    # def make_key(self, parent, label, wide=False, command=None):
+    #     return tk.Button(
+    #         parent,
+    #         text=label,
+    #         width=6 if wide else 4,
+    #         height=2,
+    #         font=("Helvetica", 12, "bold"),
+    #         bg=COLOR_KEY_DEFAULT,
+    #         fg=COLOR_KEY_TEXT,
+    #         relief="flat",
+    #         command=command,
+    #         bd=0,
+    #         highlightthickness=0
+    #     )
 
     # ==============
     # Input handling
@@ -127,6 +115,8 @@ class WordleGame(tk.Tk):
     def handle_virtual_key(self, key):
         if key == "BackSpace":
             event = type("Event", (), {"keysym": "BackSpace", "char": ""})
+        elif key == "ENTER":
+            event = type("Event", (), {"keysym": "Return", "char": ""})
         else:
             event = type("Event", (), {"keysym": key, "char": key})
         self.handle_key(event)
@@ -204,12 +194,16 @@ class WordleGame(tk.Tk):
         animate_cell(0)
 
     def update_keyboard(self, letter, color):
-        """Update keyboard button colors with priority (green > yellow > grey)."""
+        if letter not in self.keyboard_buttons:
+            return
         current = self.keyboard_state.get(letter)
         priority = {COLOR_ABSENT: 0, COLOR_PRESENT: 1, COLOR_CORRECT: 2}
         if not current or priority[color] > priority[current]:
             self.keyboard_state[letter] = color
-            self.keyboard_buttons[letter].config(bg=color)
+            self.keyboard_buttons[letter].config(
+                bg=color,
+                fg="white"
+            )
 
     def check_game_end(self, guess):
         if guess == self.secret_word:
@@ -222,6 +216,23 @@ class WordleGame(tk.Tk):
 
         if self.current_row == MAX_ATTEMPTS:
             messagebox.showinfo("Wordle", f"Game Over! The word was: {self.secret_word}")
+
+    # Utility for making keyboard keys
+    # Utility for making keyboard keys
+    def make_key(self, parent, label, wide=False, command=None):
+        lbl = tk.Label(
+            parent,
+            text=label,
+            width=6 if wide else 4,
+            height=2,
+            font=("Helvetica", 12, "bold"),
+            bg=COLOR_KEY_DEFAULT,
+            fg=COLOR_KEY_TEXT,
+            relief="raised",
+            bd=2
+        )
+        lbl.bind("<Button-1>", lambda e: command() if command else None)
+        return lbl
 
 
 if __name__ == "__main__":
