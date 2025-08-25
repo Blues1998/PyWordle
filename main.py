@@ -47,7 +47,7 @@ class WordleGame(tk.Tk):
         self.keyboard_state = {}  # track colors for keys
 
         # =========================
-        # Create UI
+        # Create UI (use GRID everywhere in this root)
         # =========================
         self.cells = []
         for r in range(MAX_ATTEMPTS):
@@ -68,9 +68,25 @@ class WordleGame(tk.Tk):
                 row.append(lbl)
             self.cells.append(row)
 
+        # Submit button (row after grid)
+        self.submit_btn = tk.Button(
+            self,
+            text="Submit",
+            font=("Helvetica", 14, "bold"),
+            bg="#4CAF50",   # green when valid
+            fg="white",
+            state="disabled",
+            relief="flat",
+            padx=10,
+            pady=5,
+            command=self.submit_guess
+        )
+        # Place submit button centered across columns
+        self.submit_btn.grid(row=MAX_ATTEMPTS, column=0, columnspan=WORD_LENGTH, pady=(10, 10))
+
         # On-screen keyboard
         self.keyboard_frame = tk.Frame(self, bg=COLOR_BG)
-        self.keyboard_frame.grid(row=MAX_ATTEMPTS + 1, column=0, columnspan=WORD_LENGTH, pady=20)
+        self.keyboard_frame.grid(row=MAX_ATTEMPTS + 1, column=0, columnspan=WORD_LENGTH, pady=10)
 
         self.keyboard_buttons = {}
         layout = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
@@ -78,8 +94,8 @@ class WordleGame(tk.Tk):
             row_frame = tk.Frame(self.keyboard_frame, bg=COLOR_BG)
             row_frame.pack(pady=3)
             if r == 2:  # add Enter first
-                enter_btn = self.make_key(row_frame, "ENTER", wide=True, command=self.submit_guess)
-                enter_btn.pack(side="left", padx=2)
+                enter_lbl = self.make_key(row_frame, "ENTER", wide=True, command=self.submit_guess)
+                enter_lbl.pack(side="left", padx=2)
 
             for k in keys:
                 btn = self.make_key(row_frame, k, wide=False, command=lambda ch=k: self.handle_virtual_key(ch))
@@ -87,27 +103,20 @@ class WordleGame(tk.Tk):
                 self.keyboard_buttons[k] = btn
 
             if r == 2:  # add Backspace last
-                back_btn = self.make_key(row_frame, "⌫", wide=True, command=lambda: self.handle_virtual_key("BackSpace"))
-                back_btn.pack(side="left", padx=2)
+                back_lbl = self.make_key(row_frame, "⌫", wide=True, command=lambda: self.handle_virtual_key("BackSpace"))
+                back_lbl.pack(side="left", padx=2)
 
         # Key bindings
         self.bind("<Key>", self.handle_key)
 
-    # Utility for making keyboard keys
-    # def make_key(self, parent, label, wide=False, command=None):
-    #     return tk.Button(
-    #         parent,
-    #         text=label,
-    #         width=6 if wide else 4,
-    #         height=2,
-    #         font=("Helvetica", 12, "bold"),
-    #         bg=COLOR_KEY_DEFAULT,
-    #         fg=COLOR_KEY_TEXT,
-    #         relief="flat",
-    #         command=command,
-    #         bd=0,
-    #         highlightthickness=0
-    #     )
+        # Initialize submit button state
+        self.update_submit_button()
+
+    # --------------------------
+    # Helpers
+    # --------------------------
+    def get_current_guess(self):
+        return "".join(self.grid_letters[self.current_row]).upper()
 
     # ==============
     # Input handling
@@ -132,24 +141,31 @@ class WordleGame(tk.Tk):
                 self.current_col -= 1
                 self.grid_letters[self.current_row][self.current_col] = ""
                 self.cells[self.current_row][self.current_col].config(text="")
-        elif event.char.isalpha() and len(event.char) == 1:
+        elif getattr(event, "char", "") and event.char.isalpha() and len(event.char) == 1:
             if self.current_col < WORD_LENGTH:
                 letter = event.char.upper()
                 self.grid_letters[self.current_row][self.current_col] = letter
                 self.cells[self.current_row][self.current_col].config(text=letter)
                 self.current_col += 1
 
+        # Keep submit button state in sync
+        self.update_submit_button()
+
     # ==============
-    # Guess check
+    # Submit / Guess check
     # ==============
     def submit_guess(self):
-        guess = "".join(self.grid_letters[self.current_row])
+        guess = self.get_current_guess()
+        # Only allow submit when exactly 5 letters and valid word
         if len(guess) != WORD_LENGTH:
-            return  # incomplete word
+            return
         if guess not in self.word_list:
-            messagebox.showwarning("Invalid", "Not in word list!")
+            # guard if user hits Enter anyway
+            self.submit_btn.config(text="Not a word", bg="#E74C3C", state="disabled")
+            self.after(1000, self.update_submit_button)
             return
 
+        # Reveal (with animation); prevents typing until done
         self.reveal_guess(guess)
 
     def reveal_guess(self, guess):
@@ -193,22 +209,36 @@ class WordleGame(tk.Tk):
 
         animate_cell(0)
 
+    def update_submit_button(self):
+        """Enable/disable and recolor the submit button based on current row content."""
+        guess = self.get_current_guess()
+        if len(guess) < WORD_LENGTH:
+            # Not enough letters
+            self.submit_btn.config(state="disabled", bg="#666666", text="Submit")
+            return
+
+        if guess in self.word_list:
+            # Valid 5 letters
+            self.submit_btn.config(state="normal", bg="#4CAF50", text="Submit")
+        else:
+            # 5 letters but not a word
+            self.submit_btn.config(state="disabled", bg="#E74C3C", text="Not a word")
+
     def update_keyboard(self, letter, color):
+        """Update keyboard button colors with priority (green > yellow > grey)."""
         if letter not in self.keyboard_buttons:
             return
         current = self.keyboard_state.get(letter)
         priority = {COLOR_ABSENT: 0, COLOR_PRESENT: 1, COLOR_CORRECT: 2}
         if not current or priority[color] > priority[current]:
             self.keyboard_state[letter] = color
-            self.keyboard_buttons[letter].config(
-                bg=color,
-                fg="white"
-            )
+            self.keyboard_buttons[letter].config(bg=color, fg="white")
 
     def check_game_end(self, guess):
         if guess == self.secret_word:
             messagebox.showinfo("Wordle", "🎉 You guessed it!")
             self.current_row = MAX_ATTEMPTS
+            self.submit_btn.config(state="disabled", bg="#666666", text="Submit")
             return
 
         self.current_row += 1
@@ -216,9 +246,15 @@ class WordleGame(tk.Tk):
 
         if self.current_row == MAX_ATTEMPTS:
             messagebox.showinfo("Wordle", f"Game Over! The word was: {self.secret_word}")
+            self.submit_btn.config(state="disabled", bg="#666666", text="Submit")
+            return
 
-    # Utility for making keyboard keys
-    # Utility for making keyboard keys
+        # Prepare next row
+        self.update_submit_button()
+
+    # --------------------------
+    # macOS-friendly "keys" using Labels
+    # --------------------------
     def make_key(self, parent, label, wide=False, command=None):
         lbl = tk.Label(
             parent,
@@ -231,7 +267,8 @@ class WordleGame(tk.Tk):
             relief="raised",
             bd=2
         )
-        lbl.bind("<Button-1>", lambda e: command() if command else None)
+        if command:
+            lbl.bind("<Button-1>", lambda e: command())
         return lbl
 
 
