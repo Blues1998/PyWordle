@@ -27,7 +27,7 @@ Challenge yourself daily, explore endless words, and tweak the rules to make the
 
 ## ⚡ Installation
 
-Clone the repo and install dependencies (if any):
+Clone the repo:
 
 ```bash
 git clone git@github.com:Blues1998/PyWordle.git
