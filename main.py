@@ -54,10 +54,38 @@ class WordleGame(tk.Tk):
         self.current_row = 0
         self.current_col = 0
         self.grid_letters = [["" for _ in range(WORD_LENGTH)] for _ in range(MAX_ATTEMPTS)]
-        self.keyboard_state = {}  # track colors for keys
+        self.keyboard_state = {}
+
+        # Score state
+        self.current_streak = 0
+        self.highest_streak = 0
 
         # =========================
-        # Create UI (use GRID everywhere in this root)
+        # Scoreboard at the top
+        # =========================
+        self.score_frame = tk.Frame(self, bg=COLOR_BG)
+        self.score_frame.grid(row=0, column=0, columnspan=WORD_LENGTH, pady=(10, 10))
+
+        self.streak_label = tk.Label(
+            self.score_frame,
+            text=f"Streak: {self.current_streak}",
+            font=("Helvetica", 16, "bold"),
+            fg="white",
+            bg=COLOR_BG
+        )
+        self.streak_label.pack(side="left", padx=20)
+
+        self.highest_label = tk.Label(
+            self.score_frame,
+            text=f"Highest: {self.highest_streak}",
+            font=("Helvetica", 16, "bold"),
+            fg="white",
+            bg=COLOR_BG
+        )
+        self.highest_label.pack(side="left", padx=20)
+
+        # =========================
+        # Create UI Grid
         # =========================
         self.cells = []
         for r in range(MAX_ATTEMPTS):
@@ -74,36 +102,36 @@ class WordleGame(tk.Tk):
                     fg=COLOR_TEXT,
                     bd=2
                 )
-                lbl.grid(row=r, column=c, padx=5, pady=5)
+                lbl.grid(row=r+1, column=c, padx=5, pady=5)  # shift grid down by +1 row
                 row.append(lbl)
             self.cells.append(row)
 
-        # Submit button (row after grid)
+        # Submit button
         self.submit_btn = tk.Label(
             self,
             text="Submit",
             font=("Helvetica", 18, "bold"),
-            bg="#555",  # grey initially
+            bg="#555",
             fg="white",
             padx=20,
             pady=10,
             relief="raised",
-            cursor="hand2"  # looks clickable
+            cursor="hand2"
         )
-        self.submit_btn.grid(row=MAX_ATTEMPTS, column=0, columnspan=WORD_LENGTH, pady=(10, 10))
+        self.submit_btn.grid(row=MAX_ATTEMPTS+1, column=0, columnspan=WORD_LENGTH, pady=(10, 10))
         self.submit_btn.bind("<Button-1>",
                              lambda e: self.submit_guess() if self.submit_btn["bg"] == "#4CAF50" else None)
 
         # On-screen keyboard
         self.keyboard_frame = tk.Frame(self, bg=COLOR_BG)
-        self.keyboard_frame.grid(row=MAX_ATTEMPTS + 1, column=0, columnspan=WORD_LENGTH, pady=10)
+        self.keyboard_frame.grid(row=MAX_ATTEMPTS + 2, column=0, columnspan=WORD_LENGTH, pady=10)
 
         self.keyboard_buttons = {}
         layout = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
         for r, keys in enumerate(layout):
             row_frame = tk.Frame(self.keyboard_frame, bg=COLOR_BG)
             row_frame.pack(pady=3)
-            if r == 2:  # add Enter first
+            if r == 2:
                 enter_lbl = self.make_key(row_frame, "ENTER", wide=True, command=self.submit_guess)
                 enter_lbl.pack(side="left", padx=2)
 
@@ -112,7 +140,7 @@ class WordleGame(tk.Tk):
                 btn.pack(side="left", padx=2)
                 self.keyboard_buttons[k] = btn
 
-            if r == 2:  # add Backspace last
+            if r == 2:
                 back_lbl = self.make_key(row_frame, "⌫", wide=True,
                                          command=lambda: self.handle_virtual_key("BackSpace"))
                 back_lbl.pack(side="left", padx=2)
@@ -121,6 +149,67 @@ class WordleGame(tk.Tk):
         self.bind("<Key>", self.handle_key)
 
         # Initialize submit button state
+        self.update_submit_button()
+
+        # --------------------------
+        # Score helpers
+        # --------------------------
+    def update_score_labels(self):
+        self.streak_label.config(text=f"Streak: {self.current_streak}")
+        self.highest_label.config(text=f"Highest: {self.highest_streak}")
+
+    def reset_game(self, won=False):
+        # Update streak based on win/loss
+        if won:
+            self.current_streak += 1
+            if self.current_streak > self.highest_streak:
+                self.highest_streak = self.current_streak
+        else:
+            self.current_streak = 0
+
+        self.update_score_labels()
+
+        # Pick a new secret word
+        self.secret_word = random.choice(self.word_list)
+
+        # Reset state
+        self.current_row = 0
+        self.current_col = 0
+        self.grid_letters = [["" for _ in range(WORD_LENGTH)] for _ in range(MAX_ATTEMPTS)]
+        self.keyboard_state.clear()
+
+        # Reset grid cells
+        for r in range(MAX_ATTEMPTS):
+            for c in range(WORD_LENGTH):
+                self.cells[r][c].config(text="", bg=COLOR_BG)
+
+        # Reset keyboard colors
+        for k, btn in self.keyboard_buttons.items():
+            btn.config(bg=COLOR_KEY_DEFAULT, fg=COLOR_KEY_TEXT)
+
+        # Enable submit button again
+        self.update_submit_button()
+
+    def check_game_end(self, guess):
+        if guess == self.secret_word:
+            messagebox.showinfo("Wordle", "🎉 You guessed it!")
+            if messagebox.askyesno("Wordle", "Play again?"):
+                self.reset_game(won=True)
+            else:
+                self.destroy()
+            return
+
+        self.current_row += 1
+        self.current_col = 0
+
+        if self.current_row == MAX_ATTEMPTS:
+            messagebox.showinfo("Wordle", f"Game Over! The word was: {self.secret_word}")
+            if messagebox.askyesno("Wordle", "Play again?"):
+                self.reset_game(won=False)
+            else:
+                self.destroy()
+            return
+
         self.update_submit_button()
 
     # --------------------------
@@ -277,51 +366,6 @@ class WordleGame(tk.Tk):
         if command:
             lbl.bind("<Button-1>", lambda e: command())
         return lbl
-
-    def reset_game(self):
-        # Pick a new secret word
-        self.secret_word = random.choice(self.word_list)
-
-        # Reset state
-        self.current_row = 0
-        self.current_col = 0
-        self.grid_letters = [["" for _ in range(WORD_LENGTH)] for _ in range(MAX_ATTEMPTS)]
-        self.keyboard_state.clear()
-
-        # Reset grid cells
-        for r in range(MAX_ATTEMPTS):
-            for c in range(WORD_LENGTH):
-                self.cells[r][c].config(text="", bg=COLOR_BG)
-
-        # Reset keyboard colors
-        for k, btn in self.keyboard_buttons.items():
-            btn.config(bg=COLOR_KEY_DEFAULT, fg=COLOR_KEY_TEXT)
-
-        # Enable submit button again
-        self.update_submit_button()
-
-    def check_game_end(self, guess):
-        if guess == self.secret_word:
-            messagebox.showinfo("Wordle", "🎉 You guessed it!")
-            if messagebox.askyesno("Wordle", "Play again?"):
-                self.reset_game()
-            else:
-                self.destroy()
-            return
-
-        self.current_row += 1
-        self.current_col = 0
-
-        if self.current_row == MAX_ATTEMPTS:
-            messagebox.showinfo("Wordle", f"Game Over! The word was: {self.secret_word}")
-            if messagebox.askyesno("Wordle", "Play again?"):
-                self.reset_game()
-            else:
-                self.destroy()
-            return
-
-        # Prepare next row
-        self.update_submit_button()
 
 
 if __name__ == "__main__":
