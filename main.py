@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 WORD_LENGTH = 5
 MAX_ATTEMPTS = 6
 WORDS_FILE = "words.txt"
+SCORE_FILE = "score.txt"
 
 # Colors
 COLOR_BG = "#121213"
@@ -58,8 +59,7 @@ class WordleGame(tk.Tk):
 
         # Score state
         self.current_streak = 0
-        self.highest_streak = 0
-
+        self.highest_streak = self.load_high_score()
         # =========================
         # Scoreboard at the top
         # =========================
@@ -151,9 +151,22 @@ class WordleGame(tk.Tk):
         # Initialize submit button state
         self.update_submit_button()
 
-        # --------------------------
-        # Score helpers
-        # --------------------------
+    # --------------------------
+    # Score helpers
+    # --------------------------
+    def load_high_score(self):
+        if os.path.exists(SCORE_FILE):
+            try:
+                with open(SCORE_FILE, "r") as f:
+                    return int(f.read().strip())
+            except:
+                return 0
+        return 0
+
+    def save_high_score(self):
+        with open(SCORE_FILE, "w") as f:
+            f.write(str(self.highest_streak))
+
     def update_score_labels(self):
         self.streak_label.config(text=f"Streak: {self.current_streak}")
         self.highest_label.config(text=f"Highest: {self.highest_streak}")
@@ -164,6 +177,7 @@ class WordleGame(tk.Tk):
             self.current_streak += 1
             if self.current_streak > self.highest_streak:
                 self.highest_streak = self.current_streak
+                self.save_high_score()
         else:
             self.current_streak = 0
 
