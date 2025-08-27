@@ -227,7 +227,6 @@ class WordleGame(tk.Tk):
 
         if len(word) == WORD_LENGTH:
             logger.debug(f"Looking into {len(self.word_list)} words for {word}")
-            logger.debug(f"{self.word_list[:5]}")
             if word in self.word_list:
                 logger.debug("Word is valid → enabling green Submit")
                 self.submit_btn.config(
@@ -260,24 +259,6 @@ class WordleGame(tk.Tk):
             self.keyboard_state[letter] = color
             self.keyboard_buttons[letter].config(bg=color, fg="white")
 
-    def check_game_end(self, guess):
-        if guess == self.secret_word:
-            messagebox.showinfo("Wordle", "🎉 You guessed it!")
-            self.current_row = MAX_ATTEMPTS
-            self.submit_btn.config(state="disabled", bg="#666666", text="Submit")
-            return
-
-        self.current_row += 1
-        self.current_col = 0
-
-        if self.current_row == MAX_ATTEMPTS:
-            messagebox.showinfo("Wordle", f"Game Over! The word was: {self.secret_word}")
-            self.submit_btn.config(state="disabled", bg="#666666", text="Submit")
-            return
-
-        # Prepare next row
-        self.update_submit_button()
-
     # --------------------------
     # macOS-friendly "keys" using Labels
     # --------------------------
@@ -296,6 +277,51 @@ class WordleGame(tk.Tk):
         if command:
             lbl.bind("<Button-1>", lambda e: command())
         return lbl
+
+    def reset_game(self):
+        # Pick a new secret word
+        self.secret_word = random.choice(self.word_list)
+
+        # Reset state
+        self.current_row = 0
+        self.current_col = 0
+        self.grid_letters = [["" for _ in range(WORD_LENGTH)] for _ in range(MAX_ATTEMPTS)]
+        self.keyboard_state.clear()
+
+        # Reset grid cells
+        for r in range(MAX_ATTEMPTS):
+            for c in range(WORD_LENGTH):
+                self.cells[r][c].config(text="", bg=COLOR_BG)
+
+        # Reset keyboard colors
+        for k, btn in self.keyboard_buttons.items():
+            btn.config(bg=COLOR_KEY_DEFAULT, fg=COLOR_KEY_TEXT)
+
+        # Enable submit button again
+        self.update_submit_button()
+
+    def check_game_end(self, guess):
+        if guess == self.secret_word:
+            messagebox.showinfo("Wordle", "🎉 You guessed it!")
+            if messagebox.askyesno("Wordle", "Play again?"):
+                self.reset_game()
+            else:
+                self.destroy()
+            return
+
+        self.current_row += 1
+        self.current_col = 0
+
+        if self.current_row == MAX_ATTEMPTS:
+            messagebox.showinfo("Wordle", f"Game Over! The word was: {self.secret_word}")
+            if messagebox.askyesno("Wordle", "Play again?"):
+                self.reset_game()
+            else:
+                self.destroy()
+            return
+
+        # Prepare next row
+        self.update_submit_button()
 
 
 if __name__ == "__main__":
