@@ -67,7 +67,7 @@ Pull requests are welcome! If you'd like to suggest features or fix issues, feel
 
 ## 📜 License
 
-MIT License © 2025 [Your Name]
+MIT License © 2025 [Animesh Singh]
 
 ---
 
